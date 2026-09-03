@@ -11,12 +11,35 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- CSS FORMAT CETAK 1 HALAMAN LANDSCAPE -->
     <style>
         @media print {
+            @page {
+                size: A4 landscape;
+                margin: 5mm;
+            }
+            body { 
+                background: white !important; 
+                font-size: 7.5pt !important; 
+                color: black !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
             .no-print { display: none !important; }
-            body { background: white !important; font-size: 9pt; }
-            .print-shadow-none { box-shadow: none !important; border: 1px solid #ccc !important; }
-            input, select { border: none !important; background: transparent !important; }
+            .print-shadow-none { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+            
+            main { padding: 0 !important; space-y: 2 border: none !important; }
+            table { font-size: 7pt !important; border-collapse: collapse !important; width: 100% !important; }
+            th, td { padding: 1px 2px !important; line-height: 1.1 !important; border: 1px solid #94a3b8 !important; }
+            input, select { border: none !important; background: transparent !important; padding: 0 !important; font-size: 7pt !important; text-align: center !important; }
+            
+            .sign-section {
+                margin-top: 10px !important;
+                padding-top: 4px !important;
+                page-break-inside: avoid !important;
+            }
+            .sign-box { height: 35px !important; }
         }
     </style>
 </head>
@@ -28,7 +51,7 @@
         const { useState, useEffect } = React;
 
         // URL Web App Google Apps Script Terpasang Terbaru
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDCCMu2K0J9908NyT6JydxGc-kwBo7Qrh4HSkPD_g191gL_L0ibzU5vzy4kESWO7bRiA/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSywiFtVDpIoyXAli3wN-ziw8w4LibauLCAfffsDwsykYXHuEzBqIA71BXnke4TEyhaA/exec";
 
         const INITIAL_USERS = [
             { username: "muammar", password: "123", name: "Muammar Ghadafi", role: "admin", station: "STA. MNCGROUP PALANGKA RAYA" },
@@ -174,7 +197,6 @@
                 }, 1500);
             };
 
-            // UPLOAD PDF KE DRIVE
             const handleUploadPdfToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -208,7 +230,6 @@
                 }
             };
 
-            // EKSPOR EXCEL HARIAN KE DRIVE
             const handleExportExcelToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -238,7 +259,6 @@
                 }
             };
 
-            // REKAP BULANAN KE EXCEL DRIVE
             const handleExportMonthlyExcel = async () => {
                 const monthYear = date.substring(0, 7);
                 setDriveLoading(true);
@@ -265,7 +285,6 @@
                 }
             };
 
-            // AMBIL DAFTAR RIWAYAT FILE
             const fetchPdfHistory = async () => {
                 setShowHistoryModal(true);
                 setLoadingHistory(true);
@@ -289,7 +308,6 @@
                 }
             };
 
-            // SIMPAN DATA JSON
             const handleSaveToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -313,7 +331,6 @@
                 }
             };
 
-            // MUAT DATA JSON
             const handleLoadFromDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -512,12 +529,11 @@
                                 </div>
                                 <h2 className="text-xl font-bold text-slate-900">{user.station}</h2>
                                 <p className="text-xs text-slate-500">
-                                    Operator On Duty: <span className="font-semibold text-slate-700">{user.name}</span> | Tanggal: <input type="date" value={date} onChange={e => setDate(e.target.value)} className="font-semibold text-slate-700 border-b no-print" />
+                                    Operator On Duty: <span className="font-semibold text-slate-700">{user.name}</span> | Tanggal: <input type="date" value={date} onChange={e => setDate(e.target.value)} className="font-semibold text-slate-700 border-b no-print" /> <span className="hidden print:inline font-semibold">{date}</span>
                                 </p>
                             </div>
 
                             <div className="flex flex-wrap gap-2 no-print">
-                                {/* KHUSUS SUPERVISOR / ADMIN */}
                                 {user.role === "admin" && (
                                     <>
                                         <button 
@@ -570,7 +586,6 @@
                                     </>
                                 )}
 
-                                {/* TOMBOL SUBMIT LAPORAN UNTUK OPERATOR MAUPUN ADMIN */}
                                 {(status === "Draft" || status === "Rejected") && (
                                     <button 
                                         onClick={() => {
@@ -608,7 +623,7 @@
                                 )}
 
                                 <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
-                                    Cetak PDF
+                                    🖨️ Cetak PDF (1 Halaman)
                                 </button>
                             </div>
                         </div>
@@ -648,7 +663,7 @@
                         </div>
 
                         {/* DESKTOP MATRIX VIEW */}
-                        {viewMode === "matrix" && (
+                        {(viewMode === "matrix" || window.matchMedia('print').matches) && (
                             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print-shadow-none">
                                 <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center no-print">
                                     <h3 className="font-bold text-slate-800 text-sm">Tabel Matrix Daily Report Metering (All Channels)</h3>
@@ -659,10 +674,10 @@
                                     <table className="w-full text-xs text-left border-collapse">
                                         <thead>
                                             <tr className="bg-slate-100 text-slate-700 uppercase border-b border-slate-200">
-                                                <th className="p-2.5 font-bold min-w-[200px] sticky left-0 bg-slate-100 z-10 border-r">Parameter</th>
-                                                <th className="p-2.5 font-bold text-center w-12 border-r">Satuan</th>
+                                                <th className="p-2 font-bold min-w-[180px] sticky left-0 bg-slate-100 z-10 border-r">Parameter</th>
+                                                <th className="p-2 font-bold text-center w-12 border-r">Satuan</th>
                                                 {TIME_SLOTS.map(slot => (
-                                                    <th key={slot} className="p-2 font-bold text-center min-w-[70px] border-r">{slot}</th>
+                                                    <th key={slot} className="p-1.5 font-bold text-center border-r">{slot}</th>
                                                 ))}
                                             </tr>
                                         </thead>
@@ -670,14 +685,14 @@
                                             {PARAMETERS.map((cat, idx) => (
                                                 <React.Fragment key={idx}>
                                                     <tr className="bg-slate-200/80 font-bold text-slate-900 uppercase">
-                                                        <td colSpan={14} className="p-2 px-3">{cat.category}</td>
+                                                        <td colSpan={14} className="p-1 px-2">{cat.category}</td>
                                                     </tr>
                                                     {cat.items.map(param => (
                                                         <tr key={param.id} className="hover:bg-slate-50">
-                                                            <td className="p-2 font-medium sticky left-0 bg-white border-r shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                                                            <td className="p-1.5 font-medium sticky left-0 bg-white border-r shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
                                                                 {param.name}
                                                             </td>
-                                                            <td className="p-2 text-center text-slate-400 border-r">{param.unit}</td>
+                                                            <td className="p-1.5 text-center text-slate-400 border-r">{param.unit}</td>
                                                             {TIME_SLOTS.map(slot => {
                                                                 const val = meteringData[param.id]?.[slot] || "";
                                                                 const isWarn = param.warnMax && parseFloat(val) > param.warnMax;
@@ -685,12 +700,12 @@
                                                                 
                                                                 if (param.type === "enum") {
                                                                     return (
-                                                                        <td key={slot} className="p-1 border-r text-center">
+                                                                        <td key={slot} className="p-0.5 border-r text-center">
                                                                             <select 
                                                                                 value={val} 
                                                                                 disabled={isDisabled}
                                                                                 onChange={e => handleInputChange(param.id, slot, e.target.value)}
-                                                                                className="w-full p-1 text-center bg-transparent focus:outline-none font-semibold"
+                                                                                className="w-full p-0.5 text-center bg-transparent focus:outline-none font-semibold"
                                                                             >
                                                                                 <option value="">-</option>
                                                                                 {param.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -700,7 +715,7 @@
                                                                 }
 
                                                                 return (
-                                                                    <td key={slot} className={`p-1 border-r text-center ${isWarn ? "bg-amber-100" : ""}`}>
+                                                                    <td key={slot} className={`p-0.5 border-r text-center ${isWarn ? "bg-amber-100" : ""}`}>
                                                                         <input 
                                                                             type="text"
                                                                             inputMode="decimal"
@@ -708,7 +723,7 @@
                                                                             disabled={isDisabled}
                                                                             placeholder="-"
                                                                             onChange={e => handleInputChange(param.id, slot, sanitizeNumberInput(e.target.value))}
-                                                                            className={`w-full p-1 text-center bg-transparent focus:outline-none ${isWarn ? "font-bold text-amber-900" : ""}`}
+                                                                            className={`w-full p-0.5 text-center bg-transparent focus:outline-none ${isWarn ? "font-bold text-amber-900" : ""}`}
                                                                         />
                                                                     </td>
                                                                 );
@@ -723,7 +738,7 @@
                             </div>
                         )}
 
-                        {/* MOBILE / ACCORDION VIEW */}
+                        {/* ACCORDION VIEW UNTUK HP */}
                         {viewMode === "mobile" && (
                             <div className="space-y-4 no-print">
                                 <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -793,21 +808,22 @@
                             </div>
                         )}
 
-                        <div className="hidden print:grid grid-cols-3 gap-4 text-center mt-12 pt-8 border-t border-slate-300 text-xs">
+                        {/* KOLOM TANDA TANGAN UNTUK PRINT */}
+                        <div className="hidden print:grid grid-cols-3 gap-4 text-center sign-section text-xs">
                             <div>
                                 <p className="font-semibold text-slate-600">Dibuat Oleh Operator,</p>
-                                <div className="h-16"></div>
+                                <div className="sign-box"></div>
                                 <p className="font-bold text-slate-900 underline">( {user.name} )</p>
                             </div>
                             <div>
                                 <p className="font-semibold text-slate-600">Diperiksa & Disetujui Oleh,</p>
-                                <div className="h-16"></div>
+                                <div className="sign-box"></div>
                                 <p className="font-bold text-slate-900 underline">( Muammar Ghadafi )</p>
                                 <p className="text-[10px] text-slate-500">Supervisor / Admin Station</p>
                             </div>
                             <div>
                                 <p className="font-semibold text-slate-600">Chief Engineer,</p>
-                                <div className="h-16"></div>
+                                <div className="sign-box"></div>
                                 <p className="font-bold text-slate-900 underline">( Manager On Duty )</p>
                             </div>
                         </div>
