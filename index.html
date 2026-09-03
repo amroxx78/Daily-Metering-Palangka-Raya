@@ -27,8 +27,8 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // URL Deployment Google Apps Script Terbaru
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZ2DfUbKhp19BIGg6g_Idq6NSAHfy13WoRZSXUIqIlIguGhgKSsxYKSEjIOdDoMl5qfg/exec";
+        // URL Web App Google Apps Script Terpasang Terbaru
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDCCMu2K0J9908NyT6JydxGc-kwBo7Qrh4HSkPD_g191gL_L0ibzU5vzy4kESWO7bRiA/exec";
 
         const INITIAL_USERS = [
             { username: "muammar", password: "123", name: "Muammar Ghadafi", role: "admin", station: "STA. MNCGROUP PALANGKA RAYA" },
@@ -91,7 +91,7 @@
             const [pdfHistory, setPdfHistory] = useState([]);
             const [loadingHistory, setLoadingHistory] = useState(false);
 
-            const [date, setDate] = useState("2026-09-02");
+            const [date, setDate] = useState("2026-09-04");
             const [status, setStatus] = useState("Draft");
             const [rejectReason, setRejectReason] = useState("");
             const [viewMode, setViewMode] = useState("matrix");
@@ -174,6 +174,7 @@
                 }, 1500);
             };
 
+            // UPLOAD PDF KE DRIVE
             const handleUploadPdfToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -207,6 +208,7 @@
                 }
             };
 
+            // EKSPOR EXCEL HARIAN KE DRIVE
             const handleExportExcelToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -236,6 +238,7 @@
                 }
             };
 
+            // REKAP BULANAN KE EXCEL DRIVE
             const handleExportMonthlyExcel = async () => {
                 const monthYear = date.substring(0, 7);
                 setDriveLoading(true);
@@ -262,6 +265,7 @@
                 }
             };
 
+            // AMBIL DAFTAR RIWAYAT FILE
             const fetchPdfHistory = async () => {
                 setShowHistoryModal(true);
                 setLoadingHistory(true);
@@ -285,6 +289,7 @@
                 }
             };
 
+            // SIMPAN DATA JSON
             const handleSaveToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -308,6 +313,7 @@
                 }
             };
 
+            // MUAT DATA JSON
             const handleLoadFromDrive = async () => {
                 setDriveLoading(true);
                 try {
