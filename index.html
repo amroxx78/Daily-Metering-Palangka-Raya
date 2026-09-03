@@ -27,8 +27,8 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // URL Web App Google Apps Script Terpasang Terbaru
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj1WRol2sCYWcvhcv0NUnWYC5mUPOuXCFXaonjaqHikNUHqp9F4E4IcFI-SPNMP5O9oQ/exec";
+        // URL Deployment Google Apps Script Terbaru
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZ2DfUbKhp19BIGg6g_Idq6NSAHfy13WoRZSXUIqIlIguGhgKSsxYKSEjIOdDoMl5qfg/exec";
 
         const INITIAL_USERS = [
             { username: "muammar", password: "123", name: "Muammar Ghadafi", role: "admin", station: "STA. MNCGROUP PALANGKA RAYA" },
@@ -174,7 +174,6 @@
                 }, 1500);
             };
 
-            // UPLOAD PDF KE DRIVE
             const handleUploadPdfToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -208,7 +207,6 @@
                 }
             };
 
-            // EKSPOR EXCEL HARIAN KE DRIVE
             const handleExportExcelToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -238,7 +236,6 @@
                 }
             };
 
-            // REKAP BULANAN KE EXCEL DRIVE
             const handleExportMonthlyExcel = async () => {
                 const monthYear = date.substring(0, 7);
                 setDriveLoading(true);
@@ -265,7 +262,6 @@
                 }
             };
 
-            // AMBIL DAFTAR RIWAYAT FILE
             const fetchPdfHistory = async () => {
                 setShowHistoryModal(true);
                 setLoadingHistory(true);
@@ -289,7 +285,6 @@
                 }
             };
 
-            // SIMPAN DATA JSON
             const handleSaveToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -313,7 +308,6 @@
                 }
             };
 
-            // MUAT DATA JSON
             const handleLoadFromDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -860,7 +854,7 @@
                         </div>
                     )}
 
-                    {/* MODAL DIALOG UBAH PASSWORD */}
+                    {/* MODAL UBAH PASSWORD */}
                     {showChangePassModal && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200">
