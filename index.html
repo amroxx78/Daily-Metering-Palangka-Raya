@@ -205,40 +205,6 @@
                 }
             };
 
-            // UPLOAD PDF KE GOOGLE DRIVE
-            const handleUploadPdfToDrive = async () => {
-                setDriveLoading(true);
-                try {
-                    const formattedOperatorName = user.name.replace(/\s+/g, '_');
-                    const customFileName = `Laporan_Metering_${date}_${formattedOperatorName}.pdf`;
-
-                    const res = await fetch(GOOGLE_SCRIPT_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify({ 
-                            action: "upload_pdf", 
-                            date, 
-                            status, 
-                            operatorName: user.name,
-                            pdfFileName: customFileName,
-                            meteringData, 
-                            parameters: PARAMETERS 
-                        }),
-                        redirect: "follow"
-                    });
-                    const result = await res.json();
-                    if (result.status === "success") {
-                        alert(result.message);
-                    } else {
-                        alert("Gagal upload PDF: " + result.message);
-                    }
-                } catch (err) {
-                    alert("Gagal mengunggah PDF. Pastikan skrip Google Apps Script sudah di-deploy ulang.");
-                } finally {
-                    setDriveLoading(false);
-                }
-            };
-
             // AMBIL DAFTAR RIWAYAT PDF LAPORAN METERING
             const fetchPdfHistory = async () => {
                 setShowHistoryModal(true);
@@ -493,14 +459,6 @@
                             </div>
 
                             <div className="flex flex-wrap gap-2 no-print">
-                                <button 
-                                    onClick={handleUploadPdfToDrive} 
-                                    disabled={driveLoading}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
-                                >
-                                    📄 {driveLoading ? "Proses..." : "Upload PDF ke Drive"}
-                                </button>
-
                                 {/* KHUSUS SUPERVISOR / ADMIN */}
                                 {user.role === "admin" && (
                                     <>
@@ -537,9 +495,16 @@
                                     </>
                                 )}
 
-                                {(user.role === "operator" || user.role === "admin") && status === "Draft" && (
-                                    <button onClick={() => setStatus("Submitted")} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
-                                        Submit Laporan
+                                {/* TOMBOL SUBMIT LAPORAN UNTUK OPERATOR (MURJANI & DEBAK) MAUPUN ADMIN */}
+                                {(status === "Draft" || status === "Rejected") && (
+                                    <button 
+                                        onClick={() => {
+                                            setStatus("Submitted");
+                                            alert("Laporan berhasil disubmit!");
+                                        }} 
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1"
+                                    >
+                                        🚀 Submit Laporan
                                     </button>
                                 )}
 
@@ -563,7 +528,7 @@
 
                                 {status === "Rejected" && (user.role === "operator" || user.role === "admin") && (
                                     <button onClick={() => setStatus("Draft")} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
-                                        Perbaiki Data
+                                        Edit Laporan
                                     </button>
                                 )}
 
