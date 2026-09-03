@@ -28,7 +28,7 @@
         const { useState, useEffect } = React;
 
         // URL Web App Google Apps Script Terpasang
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynT2_c88CjwNVUrKI2nfh-qgXCge3zpO2ElIOXDhwM_RVZOYBh8yS_6LbUkj23FmUxRA/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwdiWxxEhFtIIDpMPlvTIZh3whqZ0w139BCWc6Viw4va94JiqP-BLfuXb_706gtFsCARg/exec";
 
         const INITIAL_USERS = [
             { username: "muammar", password: "123", name: "Muammar Ghadafi", role: "admin", station: "STA. MNCGROUP PALANGKA RAYA" },
@@ -87,7 +87,6 @@
             const [passForm, setPassForm] = useState({ oldPass: "", newPass: "", confirmPass: "" });
             const [passMsg, setPassMsg] = useState({ error: "", success: "" });
 
-            // STATE RIWAYAT PDF
             const [showHistoryModal, setShowHistoryModal] = useState(false);
             const [pdfHistory, setPdfHistory] = useState([]);
             const [loadingHistory, setLoadingHistory] = useState(false);
@@ -175,7 +174,41 @@
                 }, 1500);
             };
 
-            // EKSPOR EXCEL KE GOOGLE DRIVE
+            // UPLOAD PDF KE DRIVE
+            const handleUploadPdfToDrive = async () => {
+                setDriveLoading(true);
+                try {
+                    const formattedOperatorName = user.name.replace(/\s+/g, '_');
+                    const customFileName = `Laporan_Metering_${date}_${formattedOperatorName}.pdf`;
+
+                    const res = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({ 
+                            action: "upload_pdf", 
+                            date, 
+                            status, 
+                            operatorName: user.name,
+                            pdfFileName: customFileName,
+                            meteringData, 
+                            parameters: PARAMETERS 
+                        }),
+                        redirect: "follow"
+                    });
+                    const result = await res.json();
+                    if (result.status === "success") {
+                        alert(result.message || "PDF berhasil diunggah ke Drive!");
+                    } else {
+                        alert("Gagal upload PDF: " + result.message);
+                    }
+                } catch (err) {
+                    alert("Gagal mengunggah PDF. Pastikan skrip Google Apps Script sudah di-deploy.");
+                } finally {
+                    setDriveLoading(false);
+                }
+            };
+
+            // EKSPOR EXCEL HARIAN KE DRIVE
             const handleExportExcelToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -194,18 +227,45 @@
                     });
                     const result = await res.json();
                     if (result.status === "success") {
-                        alert(result.message);
+                        alert(result.message || "File Excel berhasil disimpan ke Drive!");
                     } else {
                         alert("Gagal menyimpan Excel: " + result.message);
                     }
                 } catch (err) {
-                    alert("Gagal terhubung ke Google Drive. Pastikan Google Apps Script sudah di-deploy ulang.");
+                    alert("Gagal terhubung ke Google Drive.");
                 } finally {
                     setDriveLoading(false);
                 }
             };
 
-            // AMBIL DAFTAR RIWAYAT PDF LAPORAN METERING
+            // REKAP BULANAN KE EXCEL DRIVE
+            const handleExportMonthlyExcel = async () => {
+                const monthYear = date.substring(0, 7);
+                setDriveLoading(true);
+                try {
+                    const res = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({ 
+                            action: "export_monthly_excel", 
+                            monthYear: monthYear 
+                        }),
+                        redirect: "follow"
+                    });
+                    const result = await res.json();
+                    if (result.status === "success") {
+                        alert(result.message);
+                    } else {
+                        alert("Gagal rekap bulanan: " + result.message);
+                    }
+                } catch (err) {
+                    alert("Gagal terhubung ke Google Drive.");
+                } finally {
+                    setDriveLoading(false);
+                }
+            };
+
+            // AMBIL DAFTAR RIWAYAT FILE
             const fetchPdfHistory = async () => {
                 setShowHistoryModal(true);
                 setLoadingHistory(true);
@@ -220,7 +280,7 @@
                     if (result.status === "success") {
                         setPdfHistory(result.pdfs || []);
                     } else {
-                        alert("Gagal mengambil riwayat PDF.");
+                        alert("Gagal mengambil riwayat file.");
                     }
                 } catch (err) {
                     alert("Gagal terhubung ke Google Drive.");
@@ -290,11 +350,9 @@
                 }));
             };
 
-            // SANITASI INPUT ANGKA DAN DESIMAL
             const sanitizeNumberInput = (val) => {
                 let cleaned = val.replace(',', '.');
                 cleaned = cleaned.replace(/[^0-9.-]/g, '');
-                
                 const parts = cleaned.split('.');
                 if (parts.length > 2) {
                     cleaned = parts[0] + '.' + parts.slice(1).join('');
@@ -463,6 +521,14 @@
                                 {user.role === "admin" && (
                                     <>
                                         <button 
+                                            onClick={handleUploadPdfToDrive} 
+                                            disabled={driveLoading}
+                                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                        >
+                                            📄 {driveLoading ? "Proses..." : "Upload PDF ke Drive"}
+                                        </button>
+
+                                        <button 
                                             onClick={handleExportExcelToDrive} 
                                             disabled={driveLoading}
                                             className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
@@ -471,10 +537,19 @@
                                         </button>
 
                                         <button 
+                                            onClick={handleExportMonthlyExcel} 
+                                            disabled={driveLoading}
+                                            className="bg-lime-600 hover:bg-lime-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                            title="Merekap seluruh file JSON bulan ini menjadi 1 File Google Sheets / Excel"
+                                        >
+                                            📊 {driveLoading ? "Proses..." : "Rekap Bulanan Drive"}
+                                        </button>
+
+                                        <button 
                                             onClick={fetchPdfHistory} 
                                             className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1"
                                         >
-                                            📂 Riwayat PDF
+                                            📂 Riwayat File Drive
                                         </button>
 
                                         <button 
@@ -495,7 +570,7 @@
                                     </>
                                 )}
 
-                                {/* TOMBOL SUBMIT LAPORAN UNTUK OPERATOR (MURJANI & DEBAK) MAUPUN ADMIN */}
+                                {/* TOMBOL SUBMIT LAPORAN UNTUK OPERATOR MAUPUN ADMIN */}
                                 {(status === "Draft" || status === "Rejected") && (
                                     <button 
                                         onClick={() => {
@@ -739,19 +814,19 @@
 
                     </main>
 
-                    {/* MODAL RIWAYAT FILE PDF */}
+                    {/* MODAL RIWAYAT FILE PDF / REKAP */}
                     {showHistoryModal && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200">
                                 <div className="bg-purple-900 text-white p-4 flex justify-between items-center">
-                                    <h3 className="font-bold text-sm flex items-center gap-2">📂 Riwayat Laporan Metering (PDF)</h3>
+                                    <h3 className="font-bold text-sm flex items-center gap-2">📂 Riwayat File Tersimpan di Drive</h3>
                                     <button onClick={() => setShowHistoryModal(false)} className="text-slate-300 hover:text-white font-bold">✕</button>
                                 </div>
                                 <div className="p-5 space-y-3 max-h-96 overflow-y-auto">
                                     {loadingHistory ? (
-                                        <div className="text-center py-8 text-slate-500 text-xs">Mengambil daftar Laporan Metering dari Drive...</div>
+                                        <div className="text-center py-8 text-slate-500 text-xs">Mengambil daftar file dari Google Drive...</div>
                                     ) : pdfHistory.length === 0 ? (
-                                        <div className="text-center py-8 text-slate-500 text-xs">Belum ada file Laporan Metering tersimpan di Drive.</div>
+                                        <div className="text-center py-8 text-slate-500 text-xs">Belum ada file rekap tersimpan di Drive.</div>
                                     ) : (
                                         <div className="divide-y divide-slate-100">
                                             {pdfHistory.map((pdf, index) => (
@@ -766,7 +841,7 @@
                                                         rel="noopener noreferrer"
                                                         className="bg-purple-100 hover:bg-purple-200 text-purple-800 text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 shrink-0 transition"
                                                     >
-                                                        ⬇️ Buka PDF
+                                                        🔗 Buka File
                                                     </a>
                                                 </div>
                                             ))}
