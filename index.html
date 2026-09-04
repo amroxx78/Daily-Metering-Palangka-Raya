@@ -51,7 +51,7 @@
         const { useState, useEffect } = React;
 
         // URL Web App Google Apps Script Terpasang Terbaru
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyuIwRJVgx-Z-TB8eFs11R-fTtSZFmN_RbgC5YZt8L4l3tCiiqzwacSHtHJ9ZX_5qklnw/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQk01IkZ4USuX_rh9_iQSu1VavQUzpjoTl8mikgVIBjn6IE84Gh5WAN7UHZlmfe1iVeA/exec";
 
         const INITIAL_USERS = [
             { username: "muammar", password: "123", name: "Muammar Ghadafi", role: "admin", station: "STA. MNCGROUP PALANGKA RAYA" },
@@ -134,10 +134,8 @@
                 localStorage.setItem("metering_users_db", JSON.stringify(usersDB));
             }, [usersDB]);
 
-            // MEMUAT DATA DARI DRIVE & LOKAL SAAT TANGGAL/USER BERUBAH
             useEffect(() => {
                 if (user) {
-                    // Cek cadangan lokal terlebih dahulu
                     const localBackup = localStorage.getItem(`metering_backup_${date}`);
                     if (localBackup) {
                         try {
@@ -162,11 +160,8 @@
                     });
                     const result = await res.json();
                     if (result.status === "success" && result.data) {
-                        const driveData = result.data.meteringData || {};
-                        const driveOps = result.data.operatorsBySlot || {};
-                        
-                        setMeteringData(prev => ({ ...prev, ...driveData }));
-                        setOperatorsBySlot(prev => ({ ...prev, ...driveOps }));
+                        setMeteringData(result.data.meteringData || {});
+                        setOperatorsBySlot(result.data.operatorsBySlot || {});
                         setStatus(result.data.status || "Draft");
                         setRejectReason(result.data.rejectReason || "");
                         setAutoSyncStatus("Data tersinkronisasi");
@@ -174,7 +169,7 @@
                         setAutoSyncStatus("Siap (Belum ada file di Drive)");
                     }
                 } catch (err) {
-                    setAutoSyncStatus("Gagal memuat dari Drive (Menggunakan Lokal)");
+                    setAutoSyncStatus("Gagal memuat dari Drive");
                 }
             };
 
@@ -236,7 +231,6 @@
                 }, 1500);
             };
 
-            // MENYIMPAN KE LOKAL BROWSER + GOOGLE DRIVE
             const handleInputChange = async (paramId, timeSlot, value) => {
                 if (status === "Approved" && user.role !== "admin") return;
                 
@@ -256,12 +250,10 @@
                 setMeteringData(updatedData);
                 setOperatorsBySlot(updatedOps);
 
-                // 1. Simpan ke Cadangan Lokal HP/Laptop (Anti-Hilang)
                 localStorage.setItem(`metering_backup_${date}`, JSON.stringify({
                     date, status, meteringData: updatedData, operatorsBySlot: updatedOps
                 }));
 
-                // 2. Simpan ke Google Drive
                 try {
                     setAutoSyncStatus("Menyimpan ke Drive...");
                     const payload = { date, status, rejectReason, meteringData: updatedData, operatorsBySlot: updatedOps, updatedBy: user.name };
@@ -375,7 +367,30 @@
                     if (result.status === "success") {
                         alert(result.message);
                     } else {
-                        alert("Gagal rekap bulanan: " + result.message);
+                        alert("Gagal rekap bulanan Excel: " + result.message);
+                    }
+                } catch (err) {
+                    alert("Gagal terhubung ke Google Drive.");
+                } finally {
+                    setDriveLoading(false);
+                }
+            };
+
+            const handleExportMonthlyPdf = async () => {
+                const monthYear = date.substring(0, 7);
+                setDriveLoading(true);
+                try {
+                    const res = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({ action: "export_monthly_pdf", monthYear: monthYear, parameters: PARAMETERS }),
+                        redirect: "follow"
+                    });
+                    const result = await res.json();
+                    if (result.status === "success") {
+                        alert(result.message);
+                    } else {
+                        alert("Gagal rekap bulanan PDF: " + result.message);
                     }
                 } catch (err) {
                     alert("Gagal terhubung ke Google Drive.");
@@ -584,7 +599,7 @@
                                             disabled={driveLoading}
                                             className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
                                         >
-                                            📄 {driveLoading ? "Proses..." : "Upload PDF ke Drive"}
+                                            📄 {driveLoading ? "Proses..." : "PDF Harian"}
                                         </button>
 
                                         <button 
@@ -592,7 +607,7 @@
                                             disabled={driveLoading}
                                             className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
                                         >
-                                            📊 {driveLoading ? "Proses..." : "Save Excel Drive"}
+                                            📊 {driveLoading ? "Proses..." : "Excel Harian"}
                                         </button>
 
                                         <button 
@@ -605,10 +620,19 @@
                                         </button>
 
                                         <button 
+                                            onClick={handleExportMonthlyPdf} 
+                                            disabled={driveLoading}
+                                            className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                            title="Merekap seluruh file 30 hari bulan ini ke dalam 1 File PDF gabungan"
+                                        >
+                                            📄 {driveLoading ? "Proses..." : "Rekap Bulanan PDF"}
+                                        </button>
+
+                                        <button 
                                             onClick={fetchPdfHistory} 
                                             className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1"
                                         >
-                                            📂 Riwayat File Drive
+                                            📂 Riwayat File
                                         </button>
 
                                         <button 
