@@ -134,8 +134,16 @@
                 localStorage.setItem("metering_users_db", JSON.stringify(usersDB));
             }, [usersDB]);
 
+            // SAAT TANGGAL BERUBAH: RESET TERLEBIH DAHULU LALU BUKA DATA TANGGAL TERSEBUT
             useEffect(() => {
                 if (user) {
+                    // 1. Reset tampilan menjadi kosong
+                    setMeteringData({});
+                    setOperatorsBySlot({});
+                    setStatus("Draft");
+                    setRejectReason("");
+
+                    // 2. Cek apakah ada cadangan lokal untuk tanggal ini
                     const localBackup = localStorage.getItem(`metering_backup_${date}`);
                     if (localBackup) {
                         try {
@@ -145,12 +153,14 @@
                             setStatus(parsed.status || "Draft");
                         } catch(e){}
                     }
+
+                    // 3. Tarik data resmi dari Google Drive
                     fetchLatestDataFromDrive(date);
                 }
             }, [date, user]);
 
             const fetchLatestDataFromDrive = async (targetDate) => {
-                setAutoSyncStatus("Memuat data Drive...");
+                setAutoSyncStatus("Memuat data...");
                 try {
                     const res = await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
@@ -166,7 +176,12 @@
                         setRejectReason(result.data.rejectReason || "");
                         setAutoSyncStatus("Data tersinkronisasi");
                     } else {
-                        setAutoSyncStatus("Siap (Belum ada file di Drive)");
+                        // Jika file hari ini belum ada di Drive, pastikan formulir kosong
+                        setMeteringData({});
+                        setOperatorsBySlot({});
+                        setStatus("Draft");
+                        setRejectReason("");
+                        setAutoSyncStatus("Data baru (kosong)");
                     }
                 } catch (err) {
                     setAutoSyncStatus("Gagal memuat dari Drive");
@@ -432,6 +447,7 @@
                 return cleaned;
             };
 
+            // MEMERIKSA APAKAH SLOT JAM MEMILIKI DATA YANG DIISI
             const isSlotHasData = (slot) => {
                 return PARAMETERS.some(cat => 
                     cat.items.some(param => {
