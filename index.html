@@ -50,7 +50,6 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // URL Web App Google Apps Script Terpasang
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSywiFtVDpIoyXAli3wN-ziw8w4LibauLCAfffsDwsykYXHuEzBqIA71BXnke4TEyhaA/exec";
 
         const INITIAL_USERS = [
@@ -123,6 +122,7 @@
             const [autoSyncStatus, setAutoSyncStatus] = useState("");
             
             const [meteringData, setMeteringData] = useState({});
+            const [operatorsBySlot, setOperatorsBySlot] = useState({});
 
             useEffect(() => {
                 const savedSession = localStorage.getItem("metering_session");
@@ -133,11 +133,8 @@
                 localStorage.setItem("metering_users_db", JSON.stringify(usersDB));
             }, [usersDB]);
 
-            // OTOMATIS AMBIL DATA DARI GOOGLE DRIVE SAAT TANGGAL / USER BERUBAH
             useEffect(() => {
-                if (user) {
-                    fetchLatestDataFromDrive(date);
-                }
+                if (user) fetchLatestDataFromDrive(date);
             }, [date, user]);
 
             const fetchLatestDataFromDrive = async (targetDate) => {
@@ -152,11 +149,13 @@
                     const result = await res.json();
                     if (result.status === "success" && result.data) {
                         setMeteringData(result.data.meteringData || {});
+                        setOperatorsBySlot(result.data.operatorsBySlot || {});
                         setStatus(result.data.status || "Draft");
                         setRejectReason(result.data.rejectReason || "");
                         setAutoSyncStatus("Data tersinkronisasi");
                     } else {
                         setMeteringData({});
+                        setOperatorsBySlot({});
                         setStatus("Draft");
                         setRejectReason("");
                         setAutoSyncStatus("Data baru (kosong)");
@@ -224,7 +223,6 @@
                 }, 1500);
             };
 
-            // MENYIMPAN OTOMATIS DATA KE GOOGLE DRIVE TIAP INPUT BERUBAH
             const handleInputChange = async (paramId, timeSlot, value) => {
                 if (status === "Approved" && user.role !== "admin") return;
                 
@@ -236,12 +234,17 @@
                     }
                 };
 
-                setMeteringData(updatedData);
+                const updatedOps = {
+                    ...operatorsBySlot,
+                    [timeSlot]: user.name
+                };
 
-                // Auto-save ringan ke Google Drive
+                setMeteringData(updatedData);
+                setOperatorsBySlot(updatedOps);
+
                 try {
                     setAutoSyncStatus("Menyimpan...");
-                    const payload = { date, status, rejectReason, meteringData: updatedData, updatedBy: user.name };
+                    const payload = { date, status, rejectReason, meteringData: updatedData, operatorsBySlot: updatedOps, updatedBy: user.name };
                     await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
                         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -258,7 +261,7 @@
                 setDriveLoading(true);
                 const targetStatus = "Submitted";
                 try {
-                    const payload = { date, status: targetStatus, rejectReason: "", meteringData, updatedBy: user.name };
+                    const payload = { date, status: targetStatus, rejectReason: "", meteringData, operatorsBySlot, updatedBy: user.name };
                     const res = await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
                         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -268,7 +271,7 @@
                     const result = await res.json();
                     if (result.status === "success") {
                         setStatus(targetStatus);
-                        alert("Laporan berhasil disubmit dan tersimpan di Google Drive!");
+                        alert("Laporan berhasil disubmit!");
                     } else {
                         alert("Gagal submit: " + result.message);
                     }
@@ -282,9 +285,6 @@
             const handleUploadPdfToDrive = async () => {
                 setDriveLoading(true);
                 try {
-                    const formattedOperatorName = user.name.replace(/\s+/g, '_');
-                    const customFileName = `Laporan_Metering_${date}_${formattedOperatorName}.pdf`;
-
                     const res = await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
                         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -292,16 +292,16 @@
                             action: "upload_pdf", 
                             date, 
                             status, 
-                            operatorName: user.name,
-                            pdfFileName: customFileName,
+                            pdfFileName: `Laporan_Metering_${date}.pdf`,
                             meteringData, 
+                            operatorsBySlot,
                             parameters: PARAMETERS 
                         }),
                         redirect: "follow"
                     });
                     const result = await res.json();
                     if (result.status === "success") {
-                        alert(result.message || "PDF berhasil diunggah ke Drive!");
+                        alert(result.message || "PDF berhasil diunggah!");
                     } else {
                         alert("Gagal upload PDF: " + result.message);
                     }
@@ -322,15 +322,15 @@
                             action: "export_excel", 
                             date, 
                             status, 
-                            operatorName: user.name,
                             meteringData, 
+                            operatorsBySlot,
                             parameters: PARAMETERS 
                         }),
                         redirect: "follow"
                     });
                     const result = await res.json();
                     if (result.status === "success") {
-                        alert(result.message || "File Excel berhasil disimpan ke Drive!");
+                        alert(result.message || "File Excel berhasil disimpan!");
                     } else {
                         alert("Gagal menyimpan Excel: " + result.message);
                     }
@@ -348,7 +348,7 @@
                     const res = await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
                         headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify({ action: "export_monthly_excel", monthYear: monthYear }),
+                        body: JSON.stringify({ action: "export_monthly_excel", monthYear: monthYear, parameters: PARAMETERS }),
                         redirect: "follow"
                     });
                     const result = await res.json();
@@ -552,7 +552,7 @@
                                 </div>
                                 <h2 className="text-xl font-bold text-slate-900">{user.station}</h2>
                                 <p className="text-xs text-slate-500">
-                                    Operator On Duty: <span className="font-semibold text-slate-700">{user.name}</span> | Tanggal: <input type="date" value={date} onChange={e => setDate(e.target.value)} className="font-semibold text-slate-700 border-b no-print" /> <span className="hidden print:inline font-semibold">{date}</span>
+                                    Operator Saat Ini: <span className="font-semibold text-slate-700">{user.name}</span> | Tanggal: <input type="date" value={date} onChange={e => setDate(e.target.value)} className="font-semibold text-slate-700 border-b no-print" /> <span className="hidden print:inline font-semibold">{date}</span>
                                 </p>
                             </div>
 
@@ -579,9 +579,9 @@
                                             onClick={handleExportMonthlyExcel} 
                                             disabled={driveLoading}
                                             className="bg-lime-600 hover:bg-lime-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
-                                            title="Merekap seluruh file JSON bulan ini menjadi 1 File Google Sheets / Excel"
+                                            title="Merekap seluruh file 30 hari bulan ini ke dalam Excel"
                                         >
-                                            📊 {driveLoading ? "Proses..." : "Rekap Bulanan Drive"}
+                                            📊 {driveLoading ? "Proses..." : "Rekap Bulanan Excel"}
                                         </button>
 
                                         <button 
@@ -674,12 +674,12 @@
                             </div>
                         </div>
 
-                        {/* DESKTOP MATRIX VIEW */}
+                        {/* TABEL MATRIX INPUT */}
                         {(viewMode === "matrix" || window.matchMedia('print').matches) && (
                             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print-shadow-none">
                                 <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center no-print">
                                     <h3 className="font-bold text-slate-800 text-sm">Tabel Matrix Daily Report Metering (All Channels)</h3>
-                                    <span className="text-xs text-slate-500">Gunakan scroll samping untuk melihat seluruh jam</span>
+                                    <span className="text-xs text-slate-500">Baris teratas menunjukkan nama penginput masing-masing slot jam</span>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -690,6 +690,16 @@
                                                 <th className="p-2 font-bold text-center w-12 border-r">Satuan</th>
                                                 {TIME_SLOTS.map(slot => (
                                                     <th key={slot} className="p-1.5 font-bold text-center border-r">{slot}</th>
+                                                ))}
+                                            </tr>
+                                            {/* BARIS PENGINPUT PER SLOT */}
+                                            <tr className="bg-blue-50 text-blue-900 font-semibold border-b border-slate-200 text-[10px]">
+                                                <td className="p-1 px-2 sticky left-0 bg-blue-50 border-r">Penginput On Duty</td>
+                                                <td className="p-1 text-center border-r">-</td>
+                                                {TIME_SLOTS.map(slot => (
+                                                    <td key={slot} className="p-1 text-center border-r truncate max-w-[70px]" title={operatorsBySlot[slot] || "-"}>
+                                                        {operatorsBySlot[slot] ? operatorsBySlot[slot].split(' ')[0] : "-"}
+                                                    </td>
                                                 ))}
                                             </tr>
                                         </thead>
@@ -750,11 +760,16 @@
                             </div>
                         )}
 
-                        {/* ACCORDION VIEW UNTUK HP */}
+                        {/* ACCORDION VIEW HP */}
                         {viewMode === "mobile" && (
                             <div className="space-y-4 no-print">
                                 <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <label className="text-xs font-bold text-slate-700 uppercase">Pilih Jam Input:</label>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-700 uppercase">Pilih Jam Input:</label>
+                                        <p className="text-[10px] text-blue-600 font-bold mt-0.5">
+                                            Penginput Slot {selectedSlot}: {operatorsBySlot[selectedSlot] || "Belum diisi"}
+                                        </p>
+                                    </div>
                                     <div className="flex flex-wrap gap-1.5">
                                         {TIME_SLOTS.map(slot => (
                                             <button 
@@ -820,12 +835,12 @@
                             </div>
                         )}
 
-                        {/* KOLOM TANDA TANGAN UNTUK PRINT */}
+                        {/* TANDA TANGAN PRINT */}
                         <div className="hidden print:grid grid-cols-3 gap-4 text-center sign-section text-xs">
                             <div>
                                 <p className="font-semibold text-slate-600">Dibuat Oleh Operator,</p>
                                 <div className="sign-box"></div>
-                                <p className="font-bold text-slate-900 underline">( {user.name} )</p>
+                                <p className="font-bold text-slate-900 underline">( Shift Operator )</p>
                             </div>
                             <div>
                                 <p className="font-semibold text-slate-600">Diperiksa & Disetujui Oleh,</p>
@@ -842,7 +857,7 @@
 
                     </main>
 
-                    {/* MODAL RIWAYAT FILE PDF / REKAP */}
+                    {/* MODAL RIWAYAT */}
                     {showHistoryModal && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200">
