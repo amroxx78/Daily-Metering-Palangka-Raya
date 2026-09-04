@@ -197,6 +197,32 @@
                 }, 1500);
             };
 
+            // SIMPAN DATA JSON PADA SAAT SUBMIT LAPORAN
+            const handleSubmitReport = async () => {
+                setDriveLoading(true);
+                const targetStatus = "Submitted";
+                try {
+                    const payload = { date, status: targetStatus, rejectReason: "", meteringData, updatedBy: user.name };
+                    const res = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({ action: "save", date, payload }),
+                        redirect: "follow"
+                    });
+                    const result = await res.json();
+                    if (result.status === "success") {
+                        setStatus(targetStatus);
+                        alert("Laporan berhasil disubmit dan file JSON telah tersimpan di Google Drive!");
+                    } else {
+                        alert("Gagal menyimpan file ke Drive: " + result.message);
+                    }
+                } catch (err) {
+                    alert("Gagal terhubung ke Google Drive saat submit.");
+                } finally {
+                    setDriveLoading(false);
+                }
+            };
+
             const handleUploadPdfToDrive = async () => {
                 setDriveLoading(true);
                 try {
@@ -586,15 +612,14 @@
                                     </>
                                 )}
 
+                                {/* TOMBOL SUBMIT LAPORAN (SEKARANG OTOMATIS SIMPAN JSON KE DRIVE) */}
                                 {(status === "Draft" || status === "Rejected") && (
                                     <button 
-                                        onClick={() => {
-                                            setStatus("Submitted");
-                                            alert("Laporan berhasil disubmit!");
-                                        }} 
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1"
+                                        onClick={handleSubmitReport}
+                                        disabled={driveLoading}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
                                     >
-                                        🚀 Submit Laporan
+                                        🚀 {driveLoading ? "Menyimpan JSON..." : "Submit Laporan"}
                                     </button>
                                 )}
 
