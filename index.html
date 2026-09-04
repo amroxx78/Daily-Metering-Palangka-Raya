@@ -51,7 +51,7 @@
         const { useState, useEffect } = React;
 
         // URL Web App Google Apps Script Terpasang Terbaru
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQk01IkZ4USuX_rh9_iQSu1VavQUzpjoTl8mikgVIBjn6IE84Gh5WAN7UHZlmfe1iVeA/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2kHzZJL1jwRrk6O4EBh5Tk6c3eHWC6bosuma-ZVr1CGvvG7pgVNWopiZLpUjZp_zq/exec";
 
         const INITIAL_USERS = [
             { username: "muammar", password: "123", name: "Muammar Ghadafi", role: "admin", station: "STA. MNCGROUP PALANGKA RAYA" },
@@ -432,13 +432,19 @@
                 return cleaned;
             };
 
+            const isSlotHasData = (slot) => {
+                return PARAMETERS.some(cat => 
+                    cat.items.some(param => {
+                        const val = meteringData[param.id]?.[slot];
+                        return val !== undefined && val !== null && val.toString().trim() !== "";
+                    })
+                );
+            };
+
             const getFilledSlotsCount = () => {
                 let filledSlots = 0;
                 TIME_SLOTS.forEach(slot => {
-                    const hasData = PARAMETERS.some(cat => 
-                        cat.items.some(param => meteringData[param.id]?.[slot])
-                    );
-                    if (hasData) filledSlots++;
+                    if (isSlotHasData(slot)) filledSlots++;
                 });
                 return filledSlots;
             };
@@ -623,7 +629,7 @@
                                             onClick={handleExportMonthlyPdf} 
                                             disabled={driveLoading}
                                             className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
-                                            title="Merekap seluruh file 30 hari bulan ini ke dalam 1 File PDF gabungan"
+                                            title="Merekap seluruh file 30 hari bulan ini ke dalam 1 File PDF"
                                         >
                                             📄 {driveLoading ? "Proses..." : "Rekap Bulanan PDF"}
                                         </button>
@@ -723,7 +729,7 @@
                             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print-shadow-none">
                                 <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center no-print">
                                     <h3 className="font-bold text-slate-800 text-sm">Tabel Matrix Daily Report Metering (All Channels)</h3>
-                                    <span className="text-xs text-slate-500">Baris teratas menunjukkan nama penginput masing-masing slot jam</span>
+                                    <span className="text-xs text-slate-500">Baris terbawah menunjukkan nama penginput setelah angka dimasukkan</span>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -734,16 +740,6 @@
                                                 <th className="p-2 font-bold text-center w-12 border-r">Satuan</th>
                                                 {TIME_SLOTS.map(slot => (
                                                     <th key={slot} className="p-1.5 font-bold text-center border-r">{slot}</th>
-                                                ))}
-                                            </tr>
-                                            {/* BARIS PENGINPUT PER SLOT */}
-                                            <tr className="bg-blue-50 text-blue-900 font-semibold border-b border-slate-200 text-[10px]">
-                                                <td className="p-1 px-2 sticky left-0 bg-blue-50 border-r">Penginput On Duty</td>
-                                                <td className="p-1 text-center border-r">-</td>
-                                                {TIME_SLOTS.map(slot => (
-                                                    <td key={slot} className="p-1 text-center border-r truncate max-w-[70px]" title={operatorsBySlot[slot] || "-"}>
-                                                        {operatorsBySlot[slot] ? operatorsBySlot[slot].split(' ')[0] : "-"}
-                                                    </td>
                                                 ))}
                                             </tr>
                                         </thead>
@@ -798,6 +794,21 @@
                                                     ))}
                                                 </React.Fragment>
                                             ))}
+
+                                            {/* BARIS PENGINPUT DI BARIS PALING BAWAH TABEL */}
+                                            <tr className="bg-blue-50 text-blue-900 font-bold border-t-2 border-slate-300 text-[11px]">
+                                                <td className="p-2 sticky left-0 bg-blue-50 border-r">Penginput On Duty</td>
+                                                <td className="p-2 text-center border-r">-</td>
+                                                {TIME_SLOTS.map(slot => {
+                                                    const hasData = isSlotHasData(slot);
+                                                    const opName = hasData ? (operatorsBySlot[slot] ? operatorsBySlot[slot].split(' ')[0] : "-") : "-";
+                                                    return (
+                                                        <td key={slot} className="p-1 text-center border-r truncate max-w-[70px]" title={hasData ? (operatorsBySlot[slot] || "-") : "Belum ada data"}>
+                                                            {opName}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -811,7 +822,7 @@
                                     <div>
                                         <label className="text-xs font-bold text-slate-700 uppercase">Pilih Jam Input:</label>
                                         <p className="text-[10px] text-blue-600 font-bold mt-0.5">
-                                            Penginput Slot {selectedSlot}: {operatorsBySlot[selectedSlot] || "Belum diisi"}
+                                            Penginput Slot {selectedSlot}: {isSlotHasData(selectedSlot) ? (operatorsBySlot[selectedSlot] || "-") : "Belum ada input"}
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">
