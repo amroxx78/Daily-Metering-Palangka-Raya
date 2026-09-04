@@ -50,7 +50,8 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSywiFtVDpIoyXAli3wN-ziw8w4LibauLCAfffsDwsykYXHuEzBqIA71BXnke4TEyhaA/exec";
+        // URL Web App Google Apps Script Terpasang Terbaru
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyuIwRJVgx-Z-TB8eFs11R-fTtSZFmN_RbgC5YZt8L4l3tCiiqzwacSHtHJ9ZX_5qklnw/exec";
 
         const INITIAL_USERS = [
             { username: "muammar", password: "123", name: "Muammar Ghadafi", role: "admin", station: "STA. MNCGROUP PALANGKA RAYA" },
@@ -113,7 +114,7 @@
             const [pdfHistory, setPdfHistory] = useState([]);
             const [loadingHistory, setLoadingHistory] = useState(false);
 
-            const [date, setDate] = useState("2026-09-04");
+            const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
             const [status, setStatus] = useState("Draft");
             const [rejectReason, setRejectReason] = useState("");
             const [viewMode, setViewMode] = useState("matrix");
@@ -133,12 +134,25 @@
                 localStorage.setItem("metering_users_db", JSON.stringify(usersDB));
             }, [usersDB]);
 
+            // MEMUAT DATA DARI DRIVE & LOKAL SAAT TANGGAL/USER BERUBAH
             useEffect(() => {
-                if (user) fetchLatestDataFromDrive(date);
+                if (user) {
+                    // Cek cadangan lokal terlebih dahulu
+                    const localBackup = localStorage.getItem(`metering_backup_${date}`);
+                    if (localBackup) {
+                        try {
+                            const parsed = JSON.parse(localBackup);
+                            setMeteringData(parsed.meteringData || {});
+                            setOperatorsBySlot(parsed.operatorsBySlot || {});
+                            setStatus(parsed.status || "Draft");
+                        } catch(e){}
+                    }
+                    fetchLatestDataFromDrive(date);
+                }
             }, [date, user]);
 
             const fetchLatestDataFromDrive = async (targetDate) => {
-                setAutoSyncStatus("Memuat data...");
+                setAutoSyncStatus("Memuat data Drive...");
                 try {
                     const res = await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
@@ -148,20 +162,19 @@
                     });
                     const result = await res.json();
                     if (result.status === "success" && result.data) {
-                        setMeteringData(result.data.meteringData || {});
-                        setOperatorsBySlot(result.data.operatorsBySlot || {});
+                        const driveData = result.data.meteringData || {};
+                        const driveOps = result.data.operatorsBySlot || {};
+                        
+                        setMeteringData(prev => ({ ...prev, ...driveData }));
+                        setOperatorsBySlot(prev => ({ ...prev, ...driveOps }));
                         setStatus(result.data.status || "Draft");
                         setRejectReason(result.data.rejectReason || "");
                         setAutoSyncStatus("Data tersinkronisasi");
                     } else {
-                        setMeteringData({});
-                        setOperatorsBySlot({});
-                        setStatus("Draft");
-                        setRejectReason("");
-                        setAutoSyncStatus("Data baru (kosong)");
+                        setAutoSyncStatus("Siap (Belum ada file di Drive)");
                     }
                 } catch (err) {
-                    setAutoSyncStatus("Gagal sinkronisasi");
+                    setAutoSyncStatus("Gagal memuat dari Drive (Menggunakan Lokal)");
                 }
             };
 
@@ -223,6 +236,7 @@
                 }, 1500);
             };
 
+            // MENYIMPAN KE LOKAL BROWSER + GOOGLE DRIVE
             const handleInputChange = async (paramId, timeSlot, value) => {
                 if (status === "Approved" && user.role !== "admin") return;
                 
@@ -242,8 +256,14 @@
                 setMeteringData(updatedData);
                 setOperatorsBySlot(updatedOps);
 
+                // 1. Simpan ke Cadangan Lokal HP/Laptop (Anti-Hilang)
+                localStorage.setItem(`metering_backup_${date}`, JSON.stringify({
+                    date, status, meteringData: updatedData, operatorsBySlot: updatedOps
+                }));
+
+                // 2. Simpan ke Google Drive
                 try {
-                    setAutoSyncStatus("Menyimpan...");
+                    setAutoSyncStatus("Menyimpan ke Drive...");
                     const payload = { date, status, rejectReason, meteringData: updatedData, operatorsBySlot: updatedOps, updatedBy: user.name };
                     await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
@@ -251,9 +271,9 @@
                         body: JSON.stringify({ action: "save", date, payload }),
                         redirect: "follow"
                     });
-                    setAutoSyncStatus("Data tersimpan otomatis");
+                    setAutoSyncStatus("Data tersimpan di Drive");
                 } catch(e) {
-                    setAutoSyncStatus("Gagal autosave");
+                    setAutoSyncStatus("Tersimpan di Lokal (Gagal ke Drive)");
                 }
             };
 
