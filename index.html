@@ -50,7 +50,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // URL Web App Google Apps Script Terpasang Terbaru
+        // URL Web App Google Apps Script Terpasang
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSywiFtVDpIoyXAli3wN-ziw8w4LibauLCAfffsDwsykYXHuEzBqIA71BXnke4TEyhaA/exec";
 
         const INITIAL_USERS = [
@@ -120,15 +120,9 @@
             const [viewMode, setViewMode] = useState("matrix");
             const [selectedSlot, setSelectedSlot] = useState("08:00");
             const [driveLoading, setDriveLoading] = useState(false);
+            const [autoSyncStatus, setAutoSyncStatus] = useState("");
             
-            const [meteringData, setMeteringData] = useState({
-                "pln_kwh": { "00:00": "12050", "02:00": "12065", "04:00": "12080", "06:00": "12098", "08:00": "12115" },
-                "ups_load": { "00:00": "45", "02:00": "45", "04:00": "44", "06:00": "48", "08:00": "52" },
-                "ac_status": { "00:00": "OK", "02:00": "OK", "04:00": "OK", "06:00": "OK", "08:00": "OK" },
-                "fo_status": { "00:00": "OK", "02:00": "OK", "04:00": "OK", "06:00": "OK", "08:00": "OK" },
-                "rcti_pwr": { "00:00": "5000", "02:00": "5000", "04:00": "5000", "06:00": "5000", "08:00": "4950" },
-                "rcti_ref": { "00:00": "0", "02:00": "0", "04:00": "0", "06:00": "0", "08:00": "12" }
-            });
+            const [meteringData, setMeteringData] = useState({});
 
             useEffect(() => {
                 const savedSession = localStorage.getItem("metering_session");
@@ -138,6 +132,39 @@
             useEffect(() => {
                 localStorage.setItem("metering_users_db", JSON.stringify(usersDB));
             }, [usersDB]);
+
+            // OTOMATIS AMBIL DATA DARI GOOGLE DRIVE SAAT TANGGAL / USER BERUBAH
+            useEffect(() => {
+                if (user) {
+                    fetchLatestDataFromDrive(date);
+                }
+            }, [date, user]);
+
+            const fetchLatestDataFromDrive = async (targetDate) => {
+                setAutoSyncStatus("Memuat data...");
+                try {
+                    const res = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({ action: "load", date: targetDate }),
+                        redirect: "follow"
+                    });
+                    const result = await res.json();
+                    if (result.status === "success" && result.data) {
+                        setMeteringData(result.data.meteringData || {});
+                        setStatus(result.data.status || "Draft");
+                        setRejectReason(result.data.rejectReason || "");
+                        setAutoSyncStatus("Data tersinkronisasi");
+                    } else {
+                        setMeteringData({});
+                        setStatus("Draft");
+                        setRejectReason("");
+                        setAutoSyncStatus("Data baru (kosong)");
+                    }
+                } catch (err) {
+                    setAutoSyncStatus("Gagal sinkronisasi");
+                }
+            };
 
             const handleLogin = (e) => {
                 e.preventDefault();
@@ -197,7 +224,36 @@
                 }, 1500);
             };
 
-            // SIMPAN DATA JSON PADA SAAT SUBMIT LAPORAN
+            // MENYIMPAN OTOMATIS DATA KE GOOGLE DRIVE TIAP INPUT BERUBAH
+            const handleInputChange = async (paramId, timeSlot, value) => {
+                if (status === "Approved" && user.role !== "admin") return;
+                
+                const updatedData = {
+                    ...meteringData,
+                    [paramId]: {
+                        ...(meteringData[paramId] || {}),
+                        [timeSlot]: value
+                    }
+                };
+
+                setMeteringData(updatedData);
+
+                // Auto-save ringan ke Google Drive
+                try {
+                    setAutoSyncStatus("Menyimpan...");
+                    const payload = { date, status, rejectReason, meteringData: updatedData, updatedBy: user.name };
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({ action: "save", date, payload }),
+                        redirect: "follow"
+                    });
+                    setAutoSyncStatus("Data tersimpan otomatis");
+                } catch(e) {
+                    setAutoSyncStatus("Gagal autosave");
+                }
+            };
+
             const handleSubmitReport = async () => {
                 setDriveLoading(true);
                 const targetStatus = "Submitted";
@@ -212,9 +268,9 @@
                     const result = await res.json();
                     if (result.status === "success") {
                         setStatus(targetStatus);
-                        alert("Laporan berhasil disubmit dan file JSON telah tersimpan di Google Drive!");
+                        alert("Laporan berhasil disubmit dan tersimpan di Google Drive!");
                     } else {
-                        alert("Gagal menyimpan file ke Drive: " + result.message);
+                        alert("Gagal submit: " + result.message);
                     }
                 } catch (err) {
                     alert("Gagal terhubung ke Google Drive saat submit.");
@@ -250,7 +306,7 @@
                         alert("Gagal upload PDF: " + result.message);
                     }
                 } catch (err) {
-                    alert("Gagal mengunggah PDF. Pastikan skrip Google Apps Script sudah di-deploy.");
+                    alert("Gagal mengunggah PDF.");
                 } finally {
                     setDriveLoading(false);
                 }
@@ -292,10 +348,7 @@
                     const res = await fetch(GOOGLE_SCRIPT_URL, {
                         method: "POST",
                         headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify({ 
-                            action: "export_monthly_excel", 
-                            monthYear: monthYear 
-                        }),
+                        body: JSON.stringify({ action: "export_monthly_excel", monthYear: monthYear }),
                         redirect: "follow"
                     });
                     const result = await res.json();
@@ -332,65 +385,6 @@
                 } finally {
                     setLoadingHistory(false);
                 }
-            };
-
-            const handleSaveToDrive = async () => {
-                setDriveLoading(true);
-                try {
-                    const payload = { date, status, rejectReason, meteringData, updatedBy: user.name };
-                    const res = await fetch(GOOGLE_SCRIPT_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify({ action: "save", date, payload }),
-                        redirect: "follow"
-                    });
-                    const result = await res.json();
-                    if (result.status === "success") {
-                        alert(result.message || "Data berhasil disimpan!");
-                    } else {
-                        alert("Gagal: " + result.message);
-                    }
-                } catch (err) {
-                    alert("Gagal menyimpan data ke Google Drive.");
-                } finally {
-                    setDriveLoading(false);
-                }
-            };
-
-            const handleLoadFromDrive = async () => {
-                setDriveLoading(true);
-                try {
-                    const res = await fetch(GOOGLE_SCRIPT_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify({ action: "load", date }),
-                        redirect: "follow"
-                    });
-                    const result = await res.json();
-                    if (result.status === "success" && result.data) {
-                        setMeteringData(result.data.meteringData || {});
-                        setStatus(result.data.status || "Draft");
-                        setRejectReason(result.data.rejectReason || "");
-                        alert("Data laporan tanggal " + date + " berhasil dimuat dari Google Drive!");
-                    } else {
-                        alert("Laporan untuk tanggal " + date + " tidak ditemukan di Google Drive.");
-                    }
-                } catch (err) {
-                    alert("Gagal memuat data dari Google Drive.");
-                } finally {
-                    setDriveLoading(false);
-                }
-            };
-
-            const handleInputChange = (paramId, timeSlot, value) => {
-                if (status === "Approved" && user.role !== "admin") return;
-                setMeteringData(prev => ({
-                    ...prev,
-                    [paramId]: {
-                        ...(prev[paramId] || {}),
-                        [timeSlot]: value
-                    }
-                }));
             };
 
             const sanitizeNumberInput = (val) => {
@@ -510,6 +504,9 @@
                                 </div>
                             </div>
                             <div className="flex items-center space-x-3 text-sm">
+                                <span className="text-[11px] bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700 font-medium">
+                                    🔄 {autoSyncStatus || "Siap"}
+                                </span>
                                 <button 
                                     onClick={() => setViewMode(viewMode === "matrix" ? "mobile" : "matrix")} 
                                     className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
@@ -595,31 +592,21 @@
                                         </button>
 
                                         <button 
-                                            onClick={handleSaveToDrive} 
-                                            disabled={driveLoading}
-                                            className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                            onClick={() => fetchLatestDataFromDrive(date)} 
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1"
                                         >
-                                            ☁️ {driveLoading ? "Proses..." : "Simpan Data"}
-                                        </button>
-
-                                        <button 
-                                            onClick={handleLoadFromDrive} 
-                                            disabled={driveLoading}
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
-                                        >
-                                            📥 {driveLoading ? "Proses..." : "Muat Data"}
+                                            🔄 Refresh Data
                                         </button>
                                     </>
                                 )}
 
-                                {/* TOMBOL SUBMIT LAPORAN (SEKARANG OTOMATIS SIMPAN JSON KE DRIVE) */}
                                 {(status === "Draft" || status === "Rejected") && (
                                     <button 
                                         onClick={handleSubmitReport}
                                         disabled={driveLoading}
                                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
                                     >
-                                        🚀 {driveLoading ? "Menyimpan JSON..." : "Submit Laporan"}
+                                        🚀 {driveLoading ? "Proses..." : "Submit Laporan"}
                                     </button>
                                 )}
 
