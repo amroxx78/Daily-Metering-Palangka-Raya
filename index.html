@@ -96,28 +96,17 @@
             }
         ];
 
-        // LOGO MNC TRANSMISSION (MNC KAPITAL SEMUA)
-        const LogoMNCTransmission = ({ height = "36px" }) => (
-            <div className="flex items-center justify-center bg-white px-2.5 py-1 rounded-lg shadow-sm border border-slate-200" style={{ height }}>
-                <svg viewBox="0 0 320 80" className="h-full w-auto" xmlns="http://www.w3.org/2000/svg">
-                    {/* Teks MNC Kapital */}
-                    <text x="0" y="52" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="58" fill="#1e3a8a" letterSpacing="-1">MNC</text>
-                    {/* Teks TRANSMISSION */}
-                    <text x="2" y="74" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="18" fill="#1e3a8a" letterSpacing="1.5">TRANSMISSION</text>
-                    
-                    {/* Icon Diamond MNC 4 Warna */}
-                    <g transform="translate(195, 2)">
-                        <path d="M38 4 L72 38 L38 72 L4 38 Z" fill="#15803d" />
-                        <path d="M38 4 L72 38 L38 38 Z" fill="#eab308" />
-                        <path d="M38 38 L72 38 L38 72 Z" fill="#1e3a8a" />
-                        <path d="M4 38 L38 38 L38 72 Z" fill="#dc2626" />
-                        
-                        {/* Lingkaran Tengah */}
-                        <circle cx="38" cy="38" r="18" fill="none" stroke="white" strokeWidth="3" />
-                        <circle cx="38" cy="38" r="6" fill="white" />
-                    </g>
-                </svg>
-            </div>
+        // Komponen Logo MNC Transmission
+        const LogoMNC = ({ className = "h-8" }) => (
+            <img 
+                src="Picture ok.png" 
+                alt="MNC Transmission" 
+                className={`${className} object-contain bg-white rounded p-1 shadow-sm`}
+                onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "https://i.ibb.co/3yPZ5pW/Picture-ok.png"; // Fallback URL
+                }}
+            />
         );
 
         function App() {
@@ -506,10 +495,10 @@
                 return (
                     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-md border border-slate-700">
-                            <div className="bg-slate-900 p-6 text-white text-center flex flex-col items-center border-b border-slate-800">
-                                <LogoMNCTransmission height="48px" />
-                                <h1 className="text-lg font-bold mt-3 text-slate-100">Daily Report Metering</h1>
-                                <p className="text-xs text-slate-400 mt-0.5">STA. MNCGROUP PALANGKA RAYA</p>
+                            <div className="bg-blue-600 p-6 text-white text-center flex flex-col items-center">
+                                <LogoMNC className="h-12 mb-3" />
+                                <h1 className="text-xl font-bold">Daily Report Metering</h1>
+                                <p className="text-xs text-blue-100 mt-1">STA. MNCGROUP PALANGKA RAYA</p>
                             </div>
 
                             <form onSubmit={handleLogin} className="p-6 space-y-4">
@@ -574,11 +563,11 @@
             return (
                 <div className="pb-12">
                     <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-50 no-print">
-                        <div className="max-w-7xl mx-auto px-4 py-2.5 flex justify-between items-center">
+                        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                             <div className="flex items-center space-x-3">
-                                <LogoMNCTransmission height="38px" />
+                                <LogoMNC className="h-9" />
                                 <div>
-                                    <h1 className="font-bold text-base leading-tight text-white">Daily Report Metering</h1>
+                                    <h1 className="font-bold text-base leading-tight">Daily Report Metering</h1>
                                     <p className="text-xs text-slate-400">{user.station}</p>
                                 </div>
                             </div>
