@@ -35,7 +35,7 @@
             input, select { border: none !important; background: transparent !important; padding: 0 !important; font-size: 7pt !important; text-align: center !important; }
             
             .sign-section {
-                margin-top: 10px !important;
+                margin-top: 15px !important;
                 padding-top: 4px !important;
                 page-break-inside: avoid !important;
             }
@@ -50,7 +50,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // URL Web App Google Apps Script Terpasang Terbaru
+        // URL Web App Google Apps Script Terpasang
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2kHzZJL1jwRrk6O4EBh5Tk6c3eHWC6bosuma-ZVr1CGvvG7pgVNWopiZLpUjZp_zq/exec";
 
         const INITIAL_USERS = [
@@ -125,6 +125,8 @@
             const [meteringData, setMeteringData] = useState({});
             const [operatorsBySlot, setOperatorsBySlot] = useState({});
 
+            const isFormLocked = (status === "Submitted" || status === "Approved") && user?.role !== "admin";
+
             useEffect(() => {
                 const savedSession = localStorage.getItem("metering_session");
                 if (savedSession) setUser(JSON.parse(savedSession));
@@ -134,16 +136,13 @@
                 localStorage.setItem("metering_users_db", JSON.stringify(usersDB));
             }, [usersDB]);
 
-            // SAAT TANGGAL BERUBAH: RESET TERLEBIH DAHULU LALU BUKA DATA TANGGAL TERSEBUT
             useEffect(() => {
                 if (user) {
-                    // 1. Reset tampilan menjadi kosong
                     setMeteringData({});
                     setOperatorsBySlot({});
                     setStatus("Draft");
                     setRejectReason("");
 
-                    // 2. Cek apakah ada cadangan lokal untuk tanggal ini
                     const localBackup = localStorage.getItem(`metering_backup_${date}`);
                     if (localBackup) {
                         try {
@@ -154,7 +153,6 @@
                         } catch(e){}
                     }
 
-                    // 3. Tarik data resmi dari Google Drive
                     fetchLatestDataFromDrive(date);
                 }
             }, [date, user]);
@@ -176,7 +174,6 @@
                         setRejectReason(result.data.rejectReason || "");
                         setAutoSyncStatus("Data tersinkronisasi");
                     } else {
-                        // Jika file hari ini belum ada di Drive, pastikan formulir kosong
                         setMeteringData({});
                         setOperatorsBySlot({});
                         setStatus("Draft");
@@ -247,7 +244,7 @@
             };
 
             const handleInputChange = async (paramId, timeSlot, value) => {
-                if (status === "Approved" && user.role !== "admin") return;
+                if (isFormLocked) return;
                 
                 const updatedData = {
                     ...meteringData,
@@ -285,6 +282,8 @@
             };
 
             const handleSubmitReport = async () => {
+                if (!confirm("Apakah Anda yakin ingin menyubmit laporan ini? Laporan akan TERKUNCI setelah disubmit.")) return;
+                
                 setDriveLoading(true);
                 const targetStatus = "Submitted";
                 try {
@@ -298,7 +297,7 @@
                     const result = await res.json();
                     if (result.status === "success") {
                         setStatus(targetStatus);
-                        alert("Laporan berhasil disubmit!");
+                        alert("Laporan berhasil disubmit dan telah TERKUNCI!");
                     } else {
                         alert("Gagal submit: " + result.message);
                     }
@@ -447,7 +446,6 @@
                 return cleaned;
             };
 
-            // MEMERIKSA APAKAH SLOT JAM MEMILIKI DATA YANG DIISI
             const isSlotHasData = (slot) => {
                 return PARAMETERS.some(cat => 
                     cat.items.some(param => {
@@ -604,7 +602,7 @@
                                         status === "Submitted" ? "bg-blue-100 text-blue-800" :
                                         status === "Rejected" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
                                     }`}>
-                                        STATUS: {status.toUpperCase()}
+                                        STATUS: {status.toUpperCase()} {isFormLocked ? "🔒 (TERKUNCI)" : "✏️ (BISA DIISI)"}
                                     </span>
                                 </div>
                                 <h2 className="text-xl font-bold text-slate-900">{user.station}</h2>
@@ -663,17 +661,18 @@
                                         >
                                             🔄 Refresh Data
                                         </button>
-                                    </>
-                                )}
 
-                                {(status === "Draft" || status === "Rejected") && (
-                                    <button 
-                                        onClick={handleSubmitReport}
-                                        disabled={driveLoading}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
-                                    >
-                                        🚀 {driveLoading ? "Proses..." : "Submit Laporan"}
-                                    </button>
+                                        {/* TOMBOL SUBMIT HANYA DI TAMPILKAN UNTUK AKUN SUPERVISOR / ADMIN */}
+                                        {(status === "Draft" || status === "Rejected") && (
+                                            <button 
+                                                onClick={handleSubmitReport}
+                                                disabled={driveLoading}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                            >
+                                                🚀 {driveLoading ? "Proses..." : "Submit Laporan"}
+                                            </button>
+                                        )}
+                                    </>
                                 )}
 
                                 {(user.role === "admin" || user.role === "supervisor") && (
@@ -692,12 +691,6 @@
                                             </button>
                                         )}
                                     </>
-                                )}
-
-                                {status === "Rejected" && (user.role === "operator" || user.role === "admin") && (
-                                    <button onClick={() => setStatus("Draft")} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
-                                        Edit Laporan
-                                    </button>
                                 )}
 
                                 <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
@@ -736,7 +729,7 @@
                             <div className="bg-white p-4 rounded-xl border border-slate-200">
                                 <p className="text-xs font-semibold text-slate-500 uppercase">Status Approval</p>
                                 <p className="text-sm font-bold text-slate-800 mt-2">{status}</p>
-                                <p className="text-xs text-slate-400 mt-0.5">{status === "Approved" ? "Data Terkunci" : "Dapat Diisi"}</p>
+                                <p className="text-xs text-slate-400 mt-0.5">{isFormLocked ? "🔒 Terkunci" : "✏️ Bisa Diisi"}</p>
                             </div>
                         </div>
 
@@ -745,7 +738,9 @@
                             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print-shadow-none">
                                 <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center no-print">
                                     <h3 className="font-bold text-slate-800 text-sm">Tabel Matrix Daily Report Metering (All Channels)</h3>
-                                    <span className="text-xs text-slate-500">Baris terbawah menunjukkan nama penginput setelah angka dimasukkan</span>
+                                    <span className="text-xs text-slate-500">
+                                        {isFormLocked ? "🔒 Laporan Terkunci (Hanya Lihat)" : "✏️ Masukkan angka metering"}
+                                    </span>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -774,16 +769,15 @@
                                                             {TIME_SLOTS.map(slot => {
                                                                 const val = meteringData[param.id]?.[slot] || "";
                                                                 const isWarn = param.warnMax && parseFloat(val) > param.warnMax;
-                                                                const isDisabled = status === "Approved" && user.role !== "admin";
                                                                 
                                                                 if (param.type === "enum") {
                                                                     return (
                                                                         <td key={slot} className="p-0.5 border-r text-center">
                                                                             <select 
                                                                                 value={val} 
-                                                                                disabled={isDisabled}
+                                                                                disabled={isFormLocked}
                                                                                 onChange={e => handleInputChange(param.id, slot, e.target.value)}
-                                                                                className="w-full p-0.5 text-center bg-transparent focus:outline-none font-semibold"
+                                                                                className={`w-full p-0.5 text-center bg-transparent focus:outline-none font-semibold ${isFormLocked ? 'cursor-not-allowed opacity-75' : ''}`}
                                                                             >
                                                                                 <option value="">-</option>
                                                                                 {param.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -798,10 +792,10 @@
                                                                             type="text"
                                                                             inputMode="decimal"
                                                                             value={val}
-                                                                            disabled={isDisabled}
+                                                                            disabled={isFormLocked}
                                                                             placeholder="-"
                                                                             onChange={e => handleInputChange(param.id, slot, sanitizeNumberInput(e.target.value))}
-                                                                            className={`w-full p-0.5 text-center bg-transparent focus:outline-none ${isWarn ? "font-bold text-amber-900" : ""}`}
+                                                                            className={`w-full p-0.5 text-center bg-transparent focus:outline-none ${isWarn ? "font-bold text-amber-900" : ""} ${isFormLocked ? 'cursor-not-allowed opacity-75' : ''}`}
                                                                         />
                                                                     </td>
                                                                 );
@@ -865,7 +859,6 @@
                                             {cat.items.map(param => {
                                                 const val = meteringData[param.id]?.[selectedSlot] || "";
                                                 const isWarn = param.warnMax && parseFloat(val) > param.warnMax;
-                                                const isDisabled = status === "Approved" && user.role !== "admin";
                                                 return (
                                                     <div key={param.id} className="py-2.5 flex items-center justify-between gap-4">
                                                         <div>
@@ -876,9 +869,9 @@
                                                             {param.type === "enum" ? (
                                                                 <select 
                                                                     value={val} 
-                                                                    disabled={isDisabled}
+                                                                    disabled={isFormLocked}
                                                                     onChange={e => handleInputChange(param.id, selectedSlot, e.target.value)}
-                                                                    className="w-full p-2 text-xs border rounded-lg bg-slate-50 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                                    className={`w-full p-2 text-xs border rounded-lg bg-slate-50 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none ${isFormLocked ? 'cursor-not-allowed opacity-75' : ''}`}
                                                                 >
                                                                     <option value="">- Pilih -</option>
                                                                     {param.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -888,12 +881,12 @@
                                                                     type="text"
                                                                     inputMode="decimal"
                                                                     value={val}
-                                                                    disabled={isDisabled}
+                                                                    disabled={isFormLocked}
                                                                     placeholder="0"
                                                                     onChange={e => handleInputChange(param.id, selectedSlot, sanitizeNumberInput(e.target.value))}
                                                                     className={`w-full p-2 text-xs border rounded-lg text-center bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                                                                         isWarn ? "bg-amber-100 font-bold text-amber-900 border-amber-300" : ""
-                                                                    }`}
+                                                                    } ${isFormLocked ? 'cursor-not-allowed opacity-75' : ''}`}
                                                                 />
                                                             )}
                                                         </div>
@@ -906,23 +899,13 @@
                             </div>
                         )}
 
-                        {/* TANDA TANGAN PRINT */}
-                        <div className="hidden print:grid grid-cols-3 gap-4 text-center sign-section text-xs">
-                            <div>
-                                <p className="font-semibold text-slate-600">Dibuat Oleh Operator,</p>
-                                <div className="sign-box"></div>
-                                <p className="font-bold text-slate-900 underline">( Shift Operator )</p>
-                            </div>
-                            <div>
-                                <p className="font-semibold text-slate-600">Diperiksa & Disetujui Oleh,</p>
+                        {/* TANDA TANGAN PRINT Sederhana (Hanya Mengetahui Pjs. KST Muammar Ghadafi) */}
+                        <div className="hidden print:flex justify-end sign-section text-xs pr-8">
+                            <div className="text-center">
+                                <p className="font-semibold text-slate-700">Mengetahui,</p>
+                                <p className="font-bold text-slate-900">Pjs. KST</p>
                                 <div className="sign-box"></div>
                                 <p className="font-bold text-slate-900 underline">( Muammar Ghadafi )</p>
-                                <p className="text-[10px] text-slate-500">Supervisor / Admin Station</p>
-                            </div>
-                            <div>
-                                <p className="font-semibold text-slate-600">Chief Engineer,</p>
-                                <div className="sign-box"></div>
-                                <p className="font-bold text-slate-900 underline">( Manager On Duty )</p>
                             </div>
                         </div>
 
